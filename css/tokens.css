@@ -1,0 +1,110 @@
+/* ============================================================
+   tokens.css — 设计令牌（唯一的样式源头）
+   规则：其它 CSS 文件只允许引用这里的变量，不得再写死色值/尺寸。
+   改主题、改密度、改圆角，只改这一个文件。
+   ============================================================ */
+
+/* ---------------- 数字字体 ----------------
+   MiSans 数字子集（只有数字与 % ± . , - 等符号，中文字符自动回落到 --font-ui）。
+   声明为 100–900 全区间，是为了让浏览器「认为」该字重已覆盖，
+   从而不去做合成加粗（否则字形会被算法抹粗而发虚）。 */
+@font-face {
+    font-family: "MiSansNum";
+    src: url("../assets/fonts/misans-num-regular.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "MiSansNumText";
+    src: url("../assets/fonts/misans-num-normal.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    color-scheme: dark;
+
+    /* ---------- 背景层级 ---------- */
+    --bg-base: #000000;      /* 页面底 */
+    --bg-surface: #1C1C1E;   /* 卡片 / 胶囊底色 */
+    --bg-elevated: #2C2C2E;  /* 卡内嵌块 / 次级按钮 */
+    --bg-hover: #3A3A3C;     /* 选中态 / hover */
+
+    /* ---------- 文本 ---------- */
+    --text-primary: #F5F5F7;
+    --text-secondary: #98989D;
+    --text-tertiary: #77777D;
+
+    /* ---------- 语义色（A 股习惯：涨红跌绿，勿改） ---------- */
+    --color-up: #FF453A;
+    --color-down: #30D158;
+    --accent: #0A84FF;
+    --warning: #FF9F0A;
+
+    --separator: rgba(255, 255, 255, .075);
+    --hairline: rgba(255, 255, 255, .06);
+
+    /* ---------- 玻璃质感（顶部悬浮胶囊 / FAB / 底部按钮） ----------
+       顶部胶囊以「卡片色」为基底（--glass-card），不描边、不投影；
+       透明度留在 .72，既能透出滚动内容，静态时又接近卡片本身的观感。 */
+    --glass-bg-strong: rgba(28, 28, 30, .78);
+    --glass-card: rgba(28, 28, 30, .72);
+    --glass-blur: blur(26px) saturate(180%);
+
+    /* ---------- 间距（4 的倍数） ---------- */
+    --s1: 4px;
+    --s2: 8px;
+    --s3: 12px;
+    --s4: 16px;
+    --s5: 20px;
+    --s6: 24px;
+
+    /* ---------- 形状 ---------- */
+    --radius-card: 21px;
+    --radius-inner: 15px;
+    --radius-pill: 999px;
+
+    /* ---------- 关键控件尺寸 ----------
+       --ctrl-h 是顶部「每日/总览」胶囊与「日期」胶囊的共用高度。
+       两者必须同源，否则又会像以前那样一高一矮。 */
+    --ctrl-h: 50px;
+    --ctrl-pad: 4px;
+    --fab-size: 56px;
+    --bottom-gap: 16px;
+
+    /* ---------- 顶部悬浮工具栏 --------------
+       工具栏脱离文档流浮在内容之上（内容滚动时从下方穿过），
+       所以滚动区必须自己留出这段高度：--toolbar-h。 */
+    --toolbar-pad-t: max(12px, var(--safe-t));
+    --toolbar-pad-b: 10px;
+    --toolbar-h: calc(var(--toolbar-pad-t) + var(--ctrl-h) + var(--toolbar-pad-b));
+
+    /* ---------- 滚轮选择器 ---------- */
+    --wheel-item-h: 40px;
+    --wheel-rows: 5;
+
+    /* ---------- 字体 ---------- */
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+    /* 大数字：独立展示、字号 ≥15px 的数值（日期分隔、KPI、价格） */
+    --font-num: "MiSansNum", -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    /* 小数字：小字号或与中文混排的数值（收益、日历、侧栏日期） */
+    --font-num-sm: "MiSansNumText", -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+
+    /* ---------- 安全区 ---------- */
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+
+    /* ---------- 动效 ----------
+       --ease      通用微交互
+       --ease-out  减速曲线：面板「从底部升起」用这条，末段慢下来才有 app 的黏手感
+       --ease-sheet 回收曲线：关闭时用，稍快且不拖尾
+       面板进场 .44s / 出场 .26s —— 进场要看清路径，出场要干脆。 */
+    --ease: cubic-bezier(.32, .72, 0, 1);
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
+    --ease-sheet: cubic-bezier(.32, .72, 0, 1);
+    --dur: .18s;
+    --dur-sheet: .44s;
+    --dur-sheet-out: .26s;
+}

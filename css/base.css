@@ -1,0 +1,157 @@
+/* ============================================================
+   base.css — 重置 / 布局骨架 / 通用工具类
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+html {
+    height: 100%;
+    background: #000;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -.015em;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+img, svg { display: block; }
+
+/* 内联图标精灵容器（不占位） */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* 图标基类：尺寸由使用处覆盖，颜色一律跟随 currentColor */
+.icon {
+    display: block;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+}
+
+/* ---------------- 布局骨架 ---------------- */
+.app-layout {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    gap: 0;
+    background: var(--bg-base);
+}
+
+/* 侧边栏默认隐藏，仅在 ≥768px 出现（见 desktop.css） */
+.sidebar { display: none; }
+
+.main-content {
+    position: relative;      /* FAB / 回到最新 的定位参照 */
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--bg-base);
+}
+
+.view-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    /* 顶部留出悬浮工具栏的高度（内容会从工具栏下方穿过去）
+       底部留出 FAB 高度，避免最后一行数据被悬浮按钮压住 */
+    padding: calc(var(--toolbar-h) + 6px) 8px calc(var(--fab-size) + 42px + var(--safe-b));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.view-container::-webkit-scrollbar { display: none; }
+
+/* ---------------- 数字排版 ----------------
+   两套 MiSans 数字子集的唯一用法入口：
+     .num-lg → 大数字（独立展示、字号 ≥15px）
+     .num-sm → 小数字（小字号，或与中文混排）
+   两者都关闭合成加粗，避免浏览器用算法把字形抹粗。 */
+.num-lg,
+.num-sm,
+/* 各组件里用到数字字体的类统一在这里收口，不要在组件文件里重复写 */
+.date-pill,
+.perf-val,
+.batch-date-divider,
+.kpi-val,
+.wr-bar-row,
+.cal-title,
+.cal-day,
+.date-field-val,
+.drawer-code,
+.stat-val,
+.tl-date,
+.tl-price,
+.tl-change,
+.tl-cell,
+.wheel-item,
+.picker-title {
+    font-synthesis: none;
+    font-variant-numeric: tabular-nums;
+}
+.num-lg { font-family: var(--font-num); }
+.num-sm { font-family: var(--font-num-sm); }
+
+/* ---------------- 通用工具类 ---------------- */
+.text-up { color: var(--color-up); }
+.text-down { color: var(--color-down); }
+.text-neutral { color: var(--text-secondary); }
+
+.empty-state {
+    padding: 15px 16px 17px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
+    letter-spacing: .01em;
+}
+
+.loading-more {
+    padding: 18px 12px 6px;
+    color: #636369;
+    font-size: 11px;
+    text-align: center;
+}
+.loading-more[hidden] { display: none; }
+
+.feed-sentinel { height: 1px; flex: 0 0 auto; }
+
+/* 键盘可达性：只在键盘聚焦时显示焦点环，鼠标点击不出现 */
+:focus-visible {
+    outline: 2px solid rgba(10, 132, 255, .85);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        transition-delay: 0s !important;
+        animation-duration: .01ms !important;
+        animation-delay: 0s !important;
+    }
+}

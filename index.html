@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BackTrack">
+    <meta name="description" content="模型推荐回测记录">
+
+    <title>BackTrack</title>
+
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="apple-touch-icon" href="assets/favicon.svg">
+
+    <!-- 样式：tokens（令牌） → base（骨架） → components（组件） → overlays（浮层） → desktop（PC 适配） -->
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/overlays.css">
+    <link rel="stylesheet" href="css/desktop.css">
+</head>
+<body>
+
+<!--
+=====================================================================
+  项目结构（改哪里看这里）
+---------------------------------------------------------------------
+  index.html                 仅保留结构与图标精灵，不含样式/逻辑
+  assets/favicon.svg         浏览器标签图标
+  css/tokens.css             设计令牌：颜色、间距、控件高度（改主题只改这里）
+  css/base.css               重置、布局骨架、通用工具类
+  css/components.css         工具栏、胶囊、列表卡片、悬浮按钮、总览
+  css/overlays.css           日历面板、详情抽屉、录入弹窗、滚轮选择器
+  css/desktop.css            ≥768px 适配（侧边栏 + 加宽留白）
+  assets/fonts/              MiSans 数字字体子集（regular=大数字 / normal=小数字）
+  js/core/utils.js           纯函数工具 + Toast
+  js/core/quote.js           行情/收益计算口径（列表、总览、抽屉共用）
+  js/data/market.js          行情数据层：东方财富公开接口 + 限速/缓存/重试/熔断
+  js/data/store.js           数据仓库、本机持久化、备份导入导出
+  js/ui/sparkline.js         列表迷你走势图
+  js/ui/action-sheet.js      底部动作面板（组别选择）
+  js/ui/wheel-date.js        年/月/日 三列滚轮日期选择器
+  js/views/feed.js           每日批次流
+  js/views/dashboard.js      总览统计
+  js/views/sidebar.js        桌面端日期树
+  js/features/calendar.js    日期选择器
+  js/features/drawer.js      个股详情
+  js/features/add-stock.js   录入推荐
+  js/app.js                  编排层（启动、渲染、全局交互）
+
+  说明：全部使用传统 <script> 而非 ES Module，
+  这样双击 index.html 用 file:// 直接打开也能跑，不需要起服务器。
+=====================================================================
+-->
+
+<!-- ============ 图标精灵：改图标只改这里 ============ -->
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <!-- 日历（用户指定图标） -->
+    <symbol id="i-calendar" viewBox="0 0 1024 1024">
+        <path fill="currentColor" d="M789.333333 181.333333h-554.666666A117.333333 117.333333 0 0 0 117.333333 298.666667v469.333333a117.333333 117.333333 0 0 0 117.333334 117.333333h554.666666A117.333333 117.333333 0 0 0 906.666667 768V298.666667a117.333333 117.333333 0 0 0-117.333334-117.333334z m-554.666666 64h554.666666c29.44 0 53.333333 23.893333 53.333334 53.333334v469.333333c0 29.44-23.893333 53.333333-53.333334 53.333333h-554.666666c-29.44 0-53.333333-23.893333-53.333334-53.333333V298.666667c0-29.44 23.893333-53.333333 53.333334-53.333334z"/>
+        <path fill="currentColor" d="M362.666667 117.333333a32 32 0 0 1 31.701333 27.648l0.298667 4.352v128a32 32 0 0 1-63.701334 4.352L330.666667 277.333333v-128a32 32 0 0 1 32-32zM661.333333 117.333333a32 32 0 0 1 31.701334 27.648l0.298666 4.352v128a32 32 0 0 1-63.701333 4.352L629.333333 277.333333v-128a32 32 0 0 1 32-32z"/>
+        <path fill="currentColor" d="M853.333333 394.666667a32 32 0 0 1 4.352 63.701333L853.333333 458.666667H170.666667a32 32 0 0 1-4.352-63.701334L170.666667 394.666667h682.666666z"/>
+    </symbol>
+
+    <!-- 加号 -->
+    <symbol id="i-plus" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/>
+    </symbol>
+
+    <!-- 向上箭头 -->
+    <symbol id="i-arrow-up" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6"/>
+    </symbol>
+
+    <!-- 关闭 -->
+    <symbol id="i-close" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+    </symbol>
+
+    <symbol id="i-chevron-left" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14.5 5.5 8 12l6.5 6.5"/>
+    </symbol>
+
+    <symbol id="i-chevron-right" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9.5 5.5 16 12l-6.5 6.5"/>
+    </symbol>
+
+    <symbol id="i-chevrons-left" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M11 6l-5.5 6L11 18M17.5 6 12 12l5.5 6"/>
+    </symbol>
+
+    <symbol id="i-chevrons-right" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M13 6l5.5 6L13 18M6.5 6 12 12l-5.5 6"/>
+    </symbol>
+
+    <symbol id="i-chevron-down" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5.5 9.5 12 16l6.5-6.5"/>
+    </symbol>
+
+    <symbol id="i-check" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.5 9.5 17.5 19.5 6.5"/>
+    </symbol>
+
+    <!-- 概览 -->
+    <symbol id="i-grid" viewBox="0 0 24 24">
+        <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"/>
+    </symbol>
+</svg>
+
+<div class="app-layout">
+    <!-- ============ 桌面端侧边栏 ============ -->
+    <aside class="sidebar">
+        <div class="sidebar-head">
+            <span class="sidebar-title">历史交易日</span>
+            <span class="sidebar-count" id="sidebarCount">—</span>
+        </div>
+        <button class="sidebar-overview" id="sidebarOverview" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg>
+            <span>策略总览</span>
+        </button>
+        <nav class="sidebar-nav" id="pcTreeNav" aria-label="按日期浏览"></nav>
+    </aside>
+
+    <!-- ============ 主内容 ============ -->
+    <main class="main-content">
+        <!-- 工具栏：移动端与桌面端共用同一份 DOM -->
+        <div class="toolbar">
+            <div class="tab-group" role="tablist" aria-label="视图切换">
+                <button class="tab-btn active" type="button" role="tab" data-tab="batch" aria-selected="true">每日</button>
+                <button class="tab-btn" type="button" role="tab" data-tab="dashboard" aria-selected="false">总览</button>
+            </div>
+            <button class="date-pill" id="datePill" type="button" aria-label="选择历史日期">
+                <span id="datePillText">选择日期</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>
+            </button>
+        </div>
+
+        <!-- 视图渲染区 -->
+        <div class="view-container" id="appContent">
+            <div id="feedList"></div>
+            <div id="feedSentinel" class="feed-sentinel"></div>
+            <div class="loading-more" id="loadingIndicator" hidden>已到最早记录</div>
+        </div>
+
+        <!-- 回到最新：底部居中，尺寸与 + 按钮一致 -->
+        <button class="back-latest" id="backToLatest" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg>
+            <span>回到最新</span>
+        </button>
+
+        <!-- 添加：悬浮右下角，仅保留 + -->
+        <button class="fab-add" id="fabAdd" type="button" aria-label="添加推荐">
+            <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+        </button>
+    </main>
+</div>
+
+<!-- ============ 日期选择器 ============ -->
+<div class="calendar-overlay" id="calendarOverlay"></div>
+<div class="calendar-panel" id="calendarPanel">
+    <div class="cal-header">
+        <button class="cal-btn" id="calPrevYear" type="button" aria-label="上一年">
+            <svg class="icon" aria-hidden="true"><use href="#i-chevrons-left"></use></svg>
+        </button>
+        <button class="cal-btn" id="calPrevMonth" type="button" aria-label="上个月">
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
+        </button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="cal-btn" id="calNextMonth" type="button" aria-label="下个月">
+            <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+        </button>
+        <button class="cal-btn" id="calNextYear" type="button" aria-label="下一年">
+            <svg class="icon" aria-hidden="true"><use href="#i-chevrons-right"></use></svg>
+        </button>
+    </div>
+    <div class="cal-weekdays">
+        <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<!-- ============ 个股详情 ============ -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="detailDrawer">
+    <div class="drawer-header">
+        <div class="header-top">
+            <div>
+                <div class="drawer-title" id="drawerName">—</div>
+                <div class="drawer-code" id="drawerCode">—</div>
+            </div>
+            <button class="btn-close" id="drawerClose" type="button" aria-label="关闭详情">
+                <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+            </button>
+        </div>
+        <div class="core-stats">
+            <div class="stat-item">
+                <span class="stat-label">追踪天数</span>
+                <span class="stat-val" id="statDays">—</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">累计收益率</span>
+                <span class="stat-val" id="statReturn">—</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">期间最高 / 最低</span>
+                <span class="stat-val stat-val--sm" id="statHighLow">—</span>
+            </div>
+        </div>
+    </div>
+    <div class="table-container" id="timelineContent"></div>
+</div>
+
+<!-- ============ 录入推荐 ============ -->
+<div class="modal" id="addModal">
+    <div class="modal-content">
+        <h3 class="modal-title">录入推荐</h3>
+
+        <div class="form-group">
+            <label for="inputDateBtn">推荐日期</label>
+            <!-- 点击后弹出三列滚轮（年 / 月 / 日），真正的值存在隐藏域里，
+                 提交逻辑仍读 #inputDate.value，不需要改业务代码 -->
+            <button class="form-control date-field" id="inputDateBtn" type="button" aria-haspopup="dialog">
+                <span class="date-field-val" id="inputDateText">—</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>
+            </button>
+            <input type="hidden" id="inputDate">
+        </div>
+
+        <div class="form-group">
+            <label for="inputStock">股票代码 / 名称</label>
+            <input type="text" class="form-control" id="inputStock" placeholder="例如：600519 贵州茅台" autocomplete="off" enterkeyhint="done">
+            <p class="form-hint form-hint--inline" id="stockHint" hidden></p>
+        </div>
+
+        <div class="form-group">
+            <label for="groupBtn">归入组别</label>
+            <!-- 外观与输入框一致，点击从底部升起选项面板（原生 select 在移动端不可控） -->
+            <button class="form-control select-field" id="groupBtn" type="button" aria-haspopup="dialog">
+                <span id="groupText">优选组</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+            </button>
+            <input type="hidden" id="selectGroup" value="优选组">
+        </div>
+
+        <p class="form-hint">行情数据来自东方财富公开接口，保存后自动同步前复权日线并计算收益；取不到数据时显示「—」，不会生成虚假收益。</p>
+
+        <button class="btn-submit" id="btnConfirmAdd" type="button">保存推荐</button>
+        <button class="btn-cancel" id="btnCancelAdd" type="button">取消</button>
+    </div>
+</div>
+
+<input type="file" id="backupFileInput" accept="application/json,.json" hidden>
+
+<!-- ============ 日期滚轮选择器（录入推荐使用） ============ -->
+<div class="picker" id="datePicker" hidden>
+    <div class="picker-mask" id="pickerMask"></div>
+    <div class="picker-sheet" role="dialog" aria-modal="true" aria-label="选择推荐日期">
+        <div class="picker-head">
+            <button class="picker-action" id="pickerCancel" type="button">取消</button>
+            <div class="picker-title" id="pickerTitle">选择日期</div>
+            <button class="picker-action picker-action--strong" id="pickerConfirm" type="button">确定</button>
+        </div>
+        <div class="picker-wheels">
+            <div class="picker-band" aria-hidden="true"></div>
+            <div class="wheel" id="wheelYear" data-kind="year" tabindex="0" role="listbox" aria-label="年份"></div>
+            <div class="wheel" id="wheelMonth" data-kind="month" tabindex="0" role="listbox" aria-label="月份"></div>
+            <div class="wheel" id="wheelDay" data-kind="day" tabindex="0" role="listbox" aria-label="日"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 脚本：按依赖顺序加载（传统 script，file:// 可直接打开） ============ -->
+<script src="js/core/utils.js"></script>
+<script src="js/core/quote.js"></script>
+<script src="js/data/market.js"></script>
+<script src="js/data/store.js"></script>
+<script src="js/ui/sparkline.js"></script>
+<script src="js/ui/action-sheet.js"></script>
+<script src="js/ui/wheel-date.js"></script>
+<script src="js/views/feed.js"></script>
+<script src="js/views/dashboard.js"></script>
+<script src="js/views/sidebar.js"></script>
+<script src="js/features/calendar.js"></script>
+<script src="js/features/drawer.js"></script>
+<script src="js/features/add-stock.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
