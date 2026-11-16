@@ -67,6 +67,35 @@
             + '</div>';
     }
 
+    /* ---------------- 组内汇总 ----------------
+       百分比相加没有意义，所以用「等权平均」：组内所有拿到行情的标的算术平均。
+       没有数据的组返回 null，页面上显示「—」，绝不拿 0 冒充。 */
+    function groupAggregate(stocks) {
+        var todaySum = 0;
+        var todayCount = 0;
+        var cumSum = 0;
+        var cumCount = 0;
+
+        stocks.forEach(function (stock) {
+            var m = quote.returnsOf(stock);
+            if (m.today !== null) { todaySum += m.today; todayCount++; }
+            if (m.cumulative !== null) { cumSum += m.cumulative; cumCount++; }
+        });
+
+        return {
+            today: todayCount ? todaySum / todayCount : null,
+            cumulative: cumCount ? cumSum / cumCount : null
+        };
+    }
+
+    /** 与行内 perf-cell 完全同构，靠 CSS 的 --perf-col 完成列对齐 */
+    function perfCell(value, label) {
+        return '<div class="perf-cell">'
+            + '<span class="perf-val ' + quote.trendClass(value) + '">' + util.formatPercent(value) + '</span>'
+            + '<span class="perf-label">' + label + '</span>'
+            + '</div>';
+    }
+
     /* ---------------- 单个批次 ---------------- */
     function batchHtml(date, collector) {
         var batch = store.state.db[date] || { '优选组': [], '落选组': [] };
@@ -77,10 +106,18 @@
             var stocks = Array.isArray(batch[groupName]) ? batch[groupName] : [];
             if (collector) stocks.forEach(function (stock) { collector.push(stock); });
 
+            var agg = groupAggregate(stocks);
+
             html += '<div class="group-block" data-group="' + util.escapeHTML(groupName) + '">'
                 + '<div class="group-header">'
-                + '<div class="group-name">' + groupName + '</div>'
-                + '<span class="group-count">' + stocks.length + ' 只标的</span>'
+                + '<div class="group-heading">'
+                + '<span class="group-name">' + groupName + '</span>'
+                + '<span class="group-count" aria-label="' + stocks.length + ' 只标的">' + stocks.length + '</span>'
+                + '</div>'
+                + '<div class="group-perf" aria-label="组内平均">'
+                + perfCell(agg.today, '今日')
+                + perfCell(agg.cumulative, '累计')
+                + '</div>'
                 + '</div>'
                 + (stocks.length
                     ? stocks.map(function (s) { return rowHtml(s, groupName, date); }).join('')
@@ -112,6 +149,24 @@
         });
     }
 
+    /** 行情回填后重算组级汇总（否则组头的平均收益会停留在同步前的状态） */
+    function refreshGroupHeader(block) {
+        if (!block) return;
+        var group = block.dataset.group;
+        var stocks = [];
+
+        Array.prototype.forEach.call(block.querySelectorAll('.stock-row'), function (row) {
+            var found = store.findStock(row.dataset.date, group, row.dataset.stock);
+            if (found) stocks.push(found);
+        });
+
+        var perf = block.querySelector('.group-perf');
+        if (!perf) return;
+
+        var agg = groupAggregate(stocks);
+        perf.innerHTML = perfCell(agg.today, '今日') + perfCell(agg.cumulative, '累计');
+    }
+
     /** 局部替换某只标的所在行，避免整列表重渲染导致滚动跳动 */
     function updateRow(stock) {
         if (!stock) return;
@@ -119,9 +174,11 @@
         for (var i = 0; i < rows.length; i++) {
             if (rows[i].dataset.stock !== stock.id) continue;
 
+            var block = rows[i].closest('.group-block');
             var holder = document.createElement('div');
             holder.innerHTML = rowHtml(stock, rows[i].dataset.group, rows[i].dataset.date);
             rows[i].parentNode.replaceChild(holder.firstElementChild, rows[i]);
+            refreshGroupHeader(block);
             return;
         }
     }

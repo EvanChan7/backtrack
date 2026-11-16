@@ -99,16 +99,19 @@ img, svg { display: block; }
 .perf-val,
 .batch-date-divider,
 .kpi-val,
-.wr-bar-row,
+.pnl-avg,
+.pnl-split,
+.pnl-n,
 .cal-title,
 .cal-day,
 .date-field-val,
 .drawer-code,
 .stat-val,
 .tl-date,
-.tl-price,
+.tl-gain,
 .tl-change,
 .tl-cell,
+.tl-value,
 .wheel-item,
 .picker-title {
     font-synthesis: none;
@@ -123,9 +126,9 @@ img, svg { display: block; }
 .text-neutral { color: var(--text-secondary); }
 
 .empty-state {
-    padding: 15px 16px 17px;
+    padding: 16px 16px 18px;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 13px;
     text-align: center;
     letter-spacing: .01em;
 }
@@ -133,7 +136,7 @@ img, svg { display: block; }
 .loading-more {
     padding: 18px 12px 6px;
     color: #636369;
-    font-size: 11px;
+    font-size: 12px;
     text-align: center;
 }
 .loading-more[hidden] { display: none; }

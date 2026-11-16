@@ -1,9 +1,10 @@
 /* ============================================================
    ui/sparkline.js — 列表迷你走势图
    设计约定：
-     · 固定 30 个槽位，缺失日留白，不把曲线拉伸铺满
+     · 首个打点永远贴在左边缘，末个贴右边缘 —— 绝不悬在中间
+     · 有数据的日子按真实间隔排布，缺数据的交易日自然留白
      · 断档处分段，绝不跨越缺失交易日连线
-     · 无发光/模糊滤镜，只有纯净线条 + 渐变面
+     · 无发光/模糊滤镜，只有纯净线条 + 渐变面 + 一条 0% 基准线
    ============================================================ */
 (function (BT) {
     'use strict';
@@ -35,7 +36,13 @@
         });
         if (!validPoints.length) return '';
 
-        var slotWidth = VIEW_W / Math.min(MAX_SLOTS, Math.max(1, visible.length));
+        /* 横向映射：首点贴左、末点贴右。
+           之前按「固定槽位」算，数据只有 1～2 天时点会落在中间，
+           看起来像是曲线从半腰开始 —— 现在无论如何都从左边缘起步。
+           保留 PAD 是为了让端点圆点不被裁掉一半。 */
+        var PAD = 4;
+        var span = VIEW_W - PAD * 2;
+        var lastIndex = Math.max(1, visible.length - 1);
         var basePrice = validPoints[0].price;
         var returns = validPoints.map(function (p) { return (p.price / basePrice - 1) * 100; });
 
@@ -49,7 +56,7 @@
         var points = validPoints.map(function (p, i) {
             return {
                 index: p.index,
-                x: (p.index + 0.5) * slotWidth,
+                x: PAD + (p.index / lastIndex) * span,
                 y: midY - (returns[i] / yScale) * halfHeight
             };
         });
@@ -110,6 +117,9 @@
             + '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.01"/>'
             + '</linearGradient>'
             + '</defs>'
+            /* 0% 基准线：让还没走到的右侧区域仍然是「图表」，而不是一块空白 */
+            + '<path d="M 0 ' + midY + ' L ' + VIEW_W + ' ' + midY + '" fill="none"'
+            + ' stroke="rgba(255,255,255,.07)" stroke-width="1" vector-effect="non-scaling-stroke"/>'
             + body
             + '</svg>';
     }

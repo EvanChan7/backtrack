@@ -1,8 +1,8 @@
 /* ============================================================
-   views/dashboard.js — 总览（胜率统计 + 行情/数据管理）
+   views/dashboard.js — 总览（持有时长盈亏 + 行情/数据管理）
    ------------------------------------------------------------
-   胜率全部基于真实行情轨道计算：D1 用第二天涨跌，D3/D5 用当日收盘比。
-   没有数据的标的计入「累计推荐」，但不计入胜率分母 —— 不拿缺失值凑数。
+   口径：平均盈亏 = 推荐日收盘 → 持有第 N 个交易日收盘的涨跌幅，
+   组内等权平均。没有数据的档位显示「—」，绝不拿 0 凑数。
    ============================================================ */
 (function (BT) {
     'use strict';
@@ -10,6 +10,8 @@
     var util = BT.util;
     var quote = BT.quote;
     var store = BT.store;
+
+    var HORIZONS = [1, 3, 5, 10];
 
     var syncing = false;
     var autoSyncDone = false;
@@ -27,11 +29,13 @@
         return out;
     }
 
-    /** 统计某分组在全部批次上的表现 */
+    /** 统计某分组在各持有档位上的盈亏 */
     function groupStats(groupName) {
         var total = 0;
-        var win = { 1: 0, 3: 0, 5: 0 };
-        var denom = { 1: 0, 3: 0, 5: 0 };
+        var buckets = {};
+        HORIZONS.forEach(function (day) {
+            buckets[day] = { sum: 0, n: 0, up: 0, down: 0 };
+        });
 
         Object.keys(store.state.db).forEach(function (date) {
             var batch = store.state.db[date];
@@ -39,41 +43,51 @@
 
             stocks.forEach(function (stock) {
                 total++;
+
                 var track = Array.isArray(stock.track) ? stock.track : [];
+                if (!track.length || !quote.isValidPrice(track[0])) return;
 
-                var d1 = track.length > 1 ? quote.dailyChange(track[1]) : null;
-                if (d1 !== null) { denom[1]++; if (d1 > 0) win[1]++; }
+                var base = Number(track[0].price);
 
-                if (track.length > 3 && quote.isValidPrice(track[0]) && quote.isValidPrice(track[3])) {
-                    denom[3]++;
-                    if (Number(track[3].price) > Number(track[0].price)) win[3]++;
-                }
-                if (track.length > 5 && quote.isValidPrice(track[0]) && quote.isValidPrice(track[5])) {
-                    denom[5]++;
-                    if (Number(track[5].price) > Number(track[0].price)) win[5]++;
-                }
+                HORIZONS.forEach(function (day) {
+                    if (track.length <= day || !quote.isValidPrice(track[day])) return;
+
+                    var returnPct = (Number(track[day].price) / base - 1) * 100;
+                    var bucket = buckets[day];
+
+                    bucket.sum += returnPct;
+                    bucket.n++;
+                    if (returnPct > 0) bucket.up++;
+                    else if (returnPct < 0) bucket.down++;
+                });
             });
         });
-
-        var rate = function (day) {
-            return denom[day] ? Math.round(win[day] / denom[day] * 100) : null;
-        };
 
         return {
             total: total,
             days: Object.keys(store.state.db).length,
-            rateD1: rate(1),
-            rateD3: rate(3),
-            rateD5: rate(5)
+            rows: HORIZONS.map(function (day) {
+                var bucket = buckets[day];
+                return {
+                    day: day,
+                    samples: bucket.n,
+                    avg: bucket.n ? bucket.sum / bucket.n : null,
+                    up: bucket.up,
+                    down: bucket.down
+                };
+            })
         };
     }
 
-    function winRateRow(label, rate) {
-        var width = rate === null ? 0 : rate;
-        return '<div class="wr-bar-row">'
-            + '<span class="wr-label">' + label + '</span>'
-            + '<div class="wr-track"><div class="wr-fill" style="width:' + width + '%"></div></div>'
-            + '<span class="wr-val">' + (rate === null ? '—' : rate + '%') + '</span>'
+    function pnlRowHtml(row) {
+        var hasData = row.samples > 0;
+
+        return '<div class="pnl-row">'
+            + '<span class="pnl-day">' + row.day + ' 天</span>'
+            + '<span class="pnl-avg ' + (hasData ? quote.trendClass(row.avg) : '') + '">'
+            + (hasData ? util.formatPercent(row.avg) : '—') + '</span>'
+            + '<span class="pnl-split">' + (hasData ? row.up + '/' + row.down : '—') + '</span>'
+            + '<span class="pnl-n">' + (hasData ? row.samples : '—') + '</span>'
             + '</div>';
     }
 
@@ -86,10 +100,11 @@
             + '<div class="kpi-item"><span class="kpi-label">回测天数</span>'
             + '<span class="kpi-val">' + stats.days + '<span class="kpi-unit"> 天</span></span></div>'
             + '</div>'
-            + '<div class="section-title">持有时长胜率</div>'
-            + winRateRow('Day 1', stats.rateD1)
-            + winRateRow('Day 3', stats.rateD3)
-            + winRateRow('Day 5', stats.rateD5)
+            + '<div class="section-title">持有时长盈亏</div>'
+            + '<div class="pnl-table">'
+            + '<div class="pnl-head"><span>持有</span><span>平均盈亏</span><span>盈/亏</span><span>样本</span></div>'
+            + stats.rows.map(pnlRowHtml).join('')
+            + '</div>'
             + '</div>';
     }
 
@@ -155,6 +170,8 @@
             '<div class="dashboard-wrapper">'
             + groupCardHtml('优选组表现', groupStats('优选组'))
             + groupCardHtml('落选组表现', groupStats('落选组'))
+            + '<div class="pnl-note pnl-note--standalone">平均盈亏＝推荐日收盘到持有第 N 个交易日收盘的涨跌幅，组内等权；'
+            + '「盈/亏」为该档位上盈利与亏损的标的只数，「样本」为有足够行情可算的只数。</div>'
             + '<section class="data-tools-card">'
             + '<div class="data-tools-title">行情与数据</div>'
             + '<div class="source-row">'

@@ -183,17 +183,17 @@
 
 .drawer-header {
     flex: 0 0 auto;
-    padding: 25px 18px 16px;
+    padding: 25px 18px 17px;
     background: var(--bg-surface);
 }
 .header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 }
-.drawer-title { color: var(--text-primary); font-size: 19px; font-weight: 700; letter-spacing: -.03em; }
-.drawer-code { color: var(--text-secondary); font-family: var(--font-num-sm); font-size: 12px; }
+.drawer-title { color: var(--text-primary); font-size: 21px; font-weight: 700; letter-spacing: -.03em; }
+.drawer-code { color: var(--text-secondary); font-family: var(--font-num-sm); font-size: 13px; }
 .btn-close {
     display: grid;
     place-items: center;
@@ -206,79 +206,190 @@
 .btn-close .icon { width: 17px; height: 17px; }
 .btn-close:active { background: var(--bg-hover); }
 
-.core-stats { display: flex; justify-content: space-between; gap: 8px; }
-.stat-item { display: flex; flex-direction: column; min-width: 0; }
-.stat-label { color: var(--text-secondary); font-size: 10px; }
+/* 三个核心指标：等宽三列，标签与数值左对齐同源，列与列严格对齐 */
+.core-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.stat-item { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.stat-label { color: var(--text-secondary); font-size: 11.5px; line-height: 1.3; }
 .stat-val {
-    margin-top: 3px;
     color: var(--text-primary);
     font-family: var(--font-num);
-    font-size: 17px;
+    font-size: 20px;
     font-weight: 680;
     letter-spacing: -.03em;
+    line-height: 1.2;
 }
-.stat-val--sm { font-size: 13px; }
+.stat-val--sm { font-size: 15px; letter-spacing: -.02em; }
+/* 这两条必须写在 .stat-val 之后：同特异性下后出现者胜，
+   否则 overlays.css 里的 --text-primary 会把涨跌色盖掉 */
+.stat-val.text-up { color: var(--color-up); }
+.stat-val.text-down { color: var(--color-down); }
 
 .table-container {
     flex: 1;
     min-height: 0;
-    padding: 18px;
+    padding: 20px 18px 24px;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
 }
 .table-container::-webkit-scrollbar { display: none; }
 
+/* ---------------- 时间轴 ----------------
+   轴线是连续的：每天用一条 ::after 线段从自身顶端贯通到底端（含下边距），
+   与下一天的线段首尾相接，因此不会像 border-left 那样被间距切成虚线。
+   圆点中心与轴线严格落在同一条竖线上（绝对 x = 6.5px）。
+   层级：::after 在下、::before（圆点）在上，线不会穿过圆点。 */
+.timeline {
+    position: relative;
+    padding-left: 20px;
+}
 .timeline-day {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 18px;
-    padding-left: 12px;
-    border-left: 1px solid #38383A;
+    padding-bottom: 18px;
 }
+.timeline-day:last-child { padding-bottom: 0; }
+
+/* 行高 24px：圆点 7px，top = (24 - 7) / 2 = 8.5px，
+   圆心落在 12px —— 正好是日期那一行的垂直中心 */
 .timeline-day::before {
     content: "";
     position: absolute;
-    left: -3px;
-    top: 6px;
-    width: 5px;
-    height: 5px;
+    left: -17px;
+    top: 8.5px;
+    z-index: 1;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: #5A5A5E;
 }
+.timeline-day::after {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 0;
+    bottom: 0;
+    z-index: 0;
+    width: 1px;
+    background: #3A3A3C;
+}
+/* 线段两端各自贴住首尾圆点的边缘，不多出一截 */
+.timeline-day:first-child::after { top: 8px; }
+.timeline-day:last-child::after { bottom: auto; height: 12px; }
+
 .timeline-day.day0::before { background: var(--text-primary); }
 .timeline-day.day0 .tl-date { color: var(--text-primary); font-weight: 700; }
 
 .tl-header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    min-height: 24px;
     margin-bottom: 8px;
 }
-.tl-date { color: var(--text-secondary); font-family: var(--font-num-sm); font-size: 14px; }
-.tl-day-idx { margin-left: 6px; color: var(--text-tertiary); font-size: 10px; }
-.tl-price-group { text-align: right; }
-.tl-price { color: var(--text-primary); font-family: var(--font-num); font-size: 17px; font-weight: 600; }
-.tl-change { font-family: var(--font-num-sm); font-size: 12px; }
-
-.tl-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 11px 12px;
-    border-radius: 12px;
-    background: var(--bg-surface);
-}
-.tl-cell {
-    display: flex;
-    justify-content: space-between;
-    gap: 5px;
+.tl-meta { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.tl-date {
     color: var(--text-secondary);
     font-family: var(--font-num-sm);
-    font-size: 10px;
+    font-size: 15px;
+    line-height: 24px;
+    letter-spacing: -.01em;
+    white-space: nowrap;
 }
-.tl-cell span:last-child { color: var(--text-primary); font-weight: 600; }
+/* 天数做成胶囊标签：D0 / D1 / D23 */
+.tl-day-idx {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    background: rgba(120, 120, 128, .18);
+    color: #A8A8AE;
+    font-family: var(--font-num-sm);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    white-space: nowrap;
+}
+.tl-day-idx.is-day0 {
+    background: rgba(10, 132, 255, .16);
+    color: #6CB4FF;
+}
+
+/* 累计收益与当日涨跌两组并排；
+   两组各给固定最小宽度并右对齐，所有行的「累计」「当日」标签因此上下对齐 */
+.tl-price-group { display: inline-flex; align-items: baseline; gap: 12px; }
+.tl-metric {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 5px;
+}
+/* 定宽 + 标签贴左、数字贴右：数字长短不一时标签仍然逐行对齐 */
+.tl-price-group .tl-metric:first-child { width: 104px; }
+.tl-price-group .tl-metric:last-child { width: 72px; }
+.tl-tag {
+    color: var(--text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .02em;
+    white-space: nowrap;
+}
+.tl-gain {
+    color: var(--text-primary);
+    font-family: var(--font-num);
+    font-size: 20px;
+    font-weight: 620;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+/* 大数字行高压到 22px，header 高度就由日期的 24px 决定（36 行同高），
+   圆点 top 才能用一个常量精确压在日期行的垂直中心 */
+.tl-gain.text-up { color: var(--color-up); }
+.tl-gain.text-down { color: var(--color-down); }
+.tl-change {
+    font-family: var(--font-num-sm);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* 四列等宽：标签与数值上下紧挨、同列同 x，
+   不会再出现「今开 …… 21.22」这种跨半行的错觉 */
+.tl-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 14px 13px;
+    border-radius: 14px;
+    background: var(--bg-surface);
+}
+.tl-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tl-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.2;
+    letter-spacing: .02em;
+}
+.tl-value {
+    color: var(--text-primary);
+    font-family: var(--font-num-sm);
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+}
+/* 覆盖 .tl-value 的基色：涨跌必须能一眼分出来 */
+.tl-value.text-up { color: var(--color-up); }
+.tl-value.text-down { color: var(--color-down); }
 
 /* ---------------- 录入弹窗 ---------------- */
 .modal {
@@ -661,3 +772,23 @@ input.form-control:focus { border-color: rgba(10, 132, 255, .75); }
     font-size: 11px;
 }
 .form-hint--inline.is-error { color: var(--warning); }
+
+/* ================= 小屏兜底（详情页） ================= */
+@media (max-width: 360px) {
+    .core-stats { gap: 8px; }
+    .stat-val { font-size: 18px; }
+    .stat-val--sm { font-size: 14px; }
+    .tl-header { gap: 8px; }
+    .tl-meta { gap: 6px; }
+    .tl-date { font-size: 13.5px; }
+    .tl-day-idx { height: 18px; padding: 0 6px; font-size: 10px; }
+    .tl-price-group { gap: 8px; }
+    .tl-metric { gap: 4px; }
+    .tl-price-group .tl-metric:first-child { width: 92px; }
+    .tl-price-group .tl-metric:last-child { width: 66px; }
+    .tl-tag { font-size: 10px; }
+    .tl-gain { font-size: 17px; }
+    .tl-change { font-size: 11px; }
+    .tl-grid { gap: 6px; padding: 11px 10px 12px; }
+    .tl-value { font-size: 13px; }
+}
