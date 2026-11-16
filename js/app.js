@@ -97,6 +97,35 @@
         }, { passive: true });
     }
 
+    /* ---------------- 行情自动刷新 ----------------
+       以前只有「打开页面 / 切日期 / 进详情」才会重新取行情，页面放着不动就永远是旧数据。
+       现在交易时段每 3 分钟重拉一次当前列表，收盘后再补 30 分钟，
+       确保当天那根 K 线落地；切到后台或不在「每日批次」页时跳过，不浪费请求。 */
+    var REFRESH_INTERVAL = 180000;
+
+    function inRefreshWindow(now) {
+        var d = now || new Date();
+        var day = d.getDay();
+        if (day === 0 || day === 6) return false;
+        var minutes = d.getHours() * 60 + d.getMinutes();
+        return (minutes >= 555 && minutes <= 700)     // 9:15–11:40
+            || (minutes >= 770 && minutes <= 935);    // 12:50–15:35
+    }
+
+    function autoRefresh() {
+        if (document.hidden) return;
+        if (store.state.tab !== 'batch') return;
+        if (!inRefreshWindow()) return;
+        if (BT.feed) BT.feed.refreshVisible();
+    }
+
+    function startAutoRefresh() {
+        setInterval(autoRefresh, REFRESH_INTERVAL);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) autoRefresh();
+        }, { passive: true });
+    }
+
     /* ---------------- 启动 ---------------- */
     function start() {
         BT.calendar.bindEvents();
@@ -105,6 +134,7 @@
         BT.sidebar.bindEvents();
         BT.feed.bindEvents();
         bindGlobalEvents();
+        startAutoRefresh();
 
         store.init().then(function () {
             render();

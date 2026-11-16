@@ -207,7 +207,11 @@
 
     /* ---------------- 定位 ----------------
        手机：底部面板（CSS 负责），这里只清掉内联定位；
-       桌面：贴着「日期字段」弹出气泡，自己算一次坐标并夹在视口内。 */
+       桌面：贴着「日期字段」弹出气泡，自己算一次坐标并夹在视口内。
+       anchorTarget 为 null 时（详情页改日期复用本组件，没有录入弹窗字段）
+       改为视口居中，否则会贴到隐藏按钮的 (0,0) 位置。 */
+    var anchorTarget;   // undefined = 用录入弹窗的日期字段；null = 居中；元素 = 指定锚点
+
     function isDesktop() {
         return !!(window.matchMedia && window.matchMedia('(min-width: 768px)').matches);
     }
@@ -224,13 +228,20 @@
             return;
         }
 
-        var anchor = util.el('inputDateBtn');
+        var anchor = anchorTarget === undefined ? util.el('inputDateBtn') : anchorTarget;
         var width = Math.min(360, Math.max(300, (anchor ? anchor.offsetWidth : 320)));
         var height = sheet.offsetHeight || 332;
         var vw = window.innerWidth;
         var vh = window.innerHeight;
-        var rect = anchor ? anchor.getBoundingClientRect() : { left: 24, top: 80, bottom: 126 };
 
+        if (!anchor) {
+            sheet.style.width = width + 'px';
+            sheet.style.left = Math.max(12, (vw - width) / 2) + 'px';
+            sheet.style.top = Math.max(12, (vh - height) / 2) + 'px';
+            return;
+        }
+
+        var rect = anchor.getBoundingClientRect();
         var left = Math.min(Math.max(12, rect.left), vw - width - 12);
         var top = rect.bottom + 8;
         if (top + height > vh - 12) top = Math.max(12, rect.top - height - 8);
@@ -241,9 +252,16 @@
     }
 
     /* ---------------- 开关 ---------------- */
-    function open(iso, onConfirm) {
+    /**
+     * @param {String} iso        初始日期
+     * @param {Function} onConfirm 确定回调，参数为新 ISO 日期
+     * @param {Object} [options]  { anchor: Element|null } 桌面端定位锚点，
+     *                            传 null 表示居中（详情页复用时不传则用录入弹窗字段）
+     */
+    function open(iso, onConfirm, options) {
         ensureBuilt();
         callback = onConfirm || null;
+        anchorTarget = options && 'anchor' in options ? options.anchor : undefined;
 
         var date = util.isValidISODate(iso) ? util.parseISO(iso) : new Date();
         var years = wheels.year.values;
@@ -261,6 +279,8 @@
         clearTimeout(hideTimer);
         root.hidden = false;
         opened = true;
+        document.body.classList.add('picker-open');
+        if (util.repositionToast) util.repositionToast();
 
         // 等一帧让面板拿到布局尺寸，再定位并把三列滚到当前值
         requestAnimationFrame(function () {
@@ -280,6 +300,7 @@
         if (!root || !opened) return;
         opened = false;
         callback = null;
+        document.body.classList.remove('picker-open');
         root.classList.remove('active');
 
         clearTimeout(hideTimer);
@@ -293,6 +314,7 @@
         var done = callback;
         opened = false;
         callback = null;
+        document.body.classList.remove('picker-open');
         root.classList.remove('active');
         clearTimeout(hideTimer);
         hideTimer = setTimeout(function () {

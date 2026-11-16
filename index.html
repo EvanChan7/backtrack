@@ -80,6 +80,11 @@
         <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
     </symbol>
 
+    <!-- 编辑（用户提供的图标，原为 1024 实心风格，fill 交给 currentColor 跟随主题） -->
+    <symbol id="i-edit" viewBox="0 0 1024 1024">
+        <path fill="currentColor" d="M824.064 253.866667a42.666667 42.666667 0 0 0-60.373333-60.330667l-290.389334 290.389333-18.133333 78.464 78.464-18.090666 290.432-290.432zM703.36 133.12a128 128 0 1 1 181.034667 181.034667L593.92 604.586667a85.333333 85.333333 0 0 1-41.130667 22.784l-78.464 18.133333A85.333333 85.333333 0 0 1 372.053333 543.146667l18.090667-78.421334a85.333333 85.333333 0 0 1 22.784-41.173333l290.432-290.432zM554.666667 170.666667a42.666667 42.666667 0 0 0-42.666667-42.666667H298.666667a170.666667 170.666667 0 0 0-170.666667 170.666667v341.333333a42.666667 42.666667 0 1 0 85.333333 0V298.666667a85.333333 85.333333 0 0 1 85.333334-85.333334h213.333333a42.666667 42.666667 0 0 0 42.666667-42.666666zM225.92 770.261333l0.128-0.085333c15.061333 24.32 41.941333 40.490667 72.618667 40.490667h426.666666a85.333333 85.333333 0 0 0 85.333334-85.333334v-213.333333a42.666667 42.666667 0 1 1 85.333333 0v213.333333a170.666667 170.666667 0 0 1-170.666667 170.666667H298.666667a170.581333 170.581333 0 0 1-149.034667-87.466667l-0.085333-0.128a42.666667 42.666667 0 0 1 76.373333-38.186666z"/>
+    </symbol>
+
     <symbol id="i-chevron-left" viewBox="0 0 24 24">
         <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14.5 5.5 8 12l6.5 6.5"/>
     </symbol>
@@ -191,22 +196,22 @@
                 <div class="drawer-title" id="drawerName">—</div>
                 <div class="drawer-code" id="drawerCode">—</div>
             </div>
-            <button class="btn-close" id="drawerClose" type="button" aria-label="关闭详情">
-                <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+            <button class="btn-edit" id="drawerEdit" type="button" aria-label="编辑这只标的" aria-haspopup="dialog">
+                <svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>
             </button>
         </div>
         <div class="core-stats">
             <div class="stat-item">
                 <span class="stat-label">追踪天数</span>
-                <span class="stat-val" id="statDays">—</span>
+                <span class="stat-val" id="statDays">-</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">累计收益率</span>
-                <span class="stat-val" id="statReturn">—</span>
+                <span class="stat-val" id="statReturn">-</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">最大回撤</span>
-                <span class="stat-val stat-val--sm" id="statHighLow">—</span>
+                <span class="stat-val stat-val--sm" id="statHighLow">-</span>
             </div>
         </div>
     </div>

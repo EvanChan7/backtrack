@@ -18,7 +18,9 @@
         冷却期内直接跳到备用源，不反复打同一个域名；
      6. 数据校验：价格必须为正、日期必须合法、按日期去重升序，
         任何异常数据一律丢弃 —— 宁可显示「—」，也不生成假收益；
-     7. 按需同步：只同步当前渲染出来的标的，单轮最多 60 只。
+     7. 按需同步：只同步当前渲染出来的标的，单轮最多 60 只；
+     8. 当日补齐：日 K 序列在收盘后要过一段时间才补上当天那根（前复权更慢），
+        所以缺当日时用实时快照补一根 —— 否则「推荐日之后的第一天」永远不出现。
    ============================================================ */
 (function (BT) {
     'use strict';
@@ -105,6 +107,23 @@
 
     function ttlOf(kind) {
         return isTradingTime() ? CFG[kind + 'TTL'] : CFG[kind + 'TTLIdle'];
+    }
+
+    /**
+     * 序列是不是还缺「今天」这根 K 线。
+     * 收盘后如果有人赶在接口补数之前打开页面，缓存里就存了一份停在昨天的数据，
+     * 接下来 TTL 内一直命中它 —— 表现就是「昨天推荐的，今天只有 D0」。
+     * 所以只要已过开盘时间、又不是周末，末行日期没到今天就一律视为需要重拉。
+     */
+    function needsTodayBar(records) {
+        if (!records || !records.length) return false;
+
+        var now = new Date();
+        var day = now.getDay();
+        if (day === 0 || day === 6) return false;
+        if (now.getHours() * 60 + now.getMinutes() < 555) return false;   // 9:15 前不追当天
+
+        return records[records.length - 1].date < util.todayISO();
     }
 
     /**
@@ -452,18 +471,13 @@
         return records;
     }
 
-    function normalizeTencent(payload, secid) {
-        var code = tencentCode(secid);
-        var node = payload && payload.data && payload.data[code];
-        if (!node) return [];
-
-        // qfq=前复权；个别标的没有复权数据时退回不复权的 day
-        var rows = node.qfqday || node.day || [];
+    /** 腾讯 K 线行 → 内部结构（行 = [日期, 开, 收, 高, 低, 量, ...]） */
+    function parseTencentRows(rows) {
         var previous = null;
         var seen = Object.create(null);
         var records = [];
 
-        rows.forEach(function (row) {
+        (rows || []).forEach(function (row) {
             if (!Array.isArray(row) || row.length < 5) return;
 
             var date = row[0];
@@ -488,6 +502,101 @@
         });
 
         return records;
+    }
+
+    /**
+     * 用腾讯实时快照（qt）拼出「今天」这根 K 线。
+     * 为什么不直接等日 K：前复权序列收盘后要过很久才补上当天那根，
+     * 实测 11-16 收盘近一小时，qfqday 仍停在 11-13，而快照里已有当日开高低收。
+     * 前复权序列的最后一根价格等于真实成交价，所以拿快照补这一根不会破坏口径。
+     * qt 字段：[3]现价 [4]昨收 [5]今开 [33]最高 [34]最低 [30]时间戳 yyyyMMddHHmmss
+     */
+    function barFromTencentQt(node, secid) {
+        var code = tencentCode(secid);
+        var qt = node && node.qt && node.qt[code];
+        if (!qt || !qt.length) return null;
+
+        var stamp = String(qt[30] || '');
+        if (!/^\d{14}$/.test(stamp)) return null;
+
+        var date = stamp.slice(0, 4) + '-' + stamp.slice(4, 6) + '-' + stamp.slice(6, 8);
+        var price = num(qt[3]);
+        if (!util.isValidISODate(date) || !(price > 0)) return null;
+
+        return {
+            date: date,
+            open: positive(qt[5], price),      // 停牌时快照的开高低可能是 0，
+            price: price,                      // 用收盘价兜底，避免「最高 -100%」这种假数据
+            high: positive(qt[33], price),
+            low: positive(qt[34], price),
+            volume: num(qt[6]),
+            amount: null,
+            change: null,           // 交给 quote.dailyChange 用 prevClose 现算
+            prevClose: positive(qt[4], price)
+        };
+    }
+
+    function positive(value, fallback) {
+        var n = num(value);
+        return n !== null && n > 0 ? n : fallback;
+    }
+
+    function normalizeTencent(payload, secid) {
+        var code = tencentCode(secid);
+        var node = payload && payload.data && payload.data[code];
+        if (!node) return [];
+
+        // qfq=前复权；个别标的没有复权数据时退回不复权的 day
+        var records = parseTencentRows(node.qfqday || node.day || []);
+
+        // 序列还没补上当天这根 → 用实时快照补，否则「推荐日之后的第一天」永远出不来
+        var today = barFromTencentQt(node, secid);
+        if (today && (!records.length || today.date > records[records.length - 1].date)) {
+            records.push(today);
+        }
+
+        return records;
+    }
+
+    /**
+     * 兜底：任何源拿到的日线如果停在今天之前，就单独问一次腾讯的不复权日线，
+     * 只补「今天」这一根，不改动任何已有记录。节假日/停牌时快照日期对不上，自然不补。
+     */
+    function padTodayBar(records, secid) {
+        if (!records.length) return Promise.resolve(records);
+
+        var today = util.todayISO();
+        if (records[records.length - 1].date >= today) return Promise.resolve(records);
+
+        // 周末不可能有新的交易日，省掉这次请求
+        var weekday = new Date().getDay();
+        if (weekday === 0 || weekday === 6) return Promise.resolve(records);
+
+        var code = tencentCode(secid);
+        if (!code) return Promise.resolve(records);
+
+        return request('tencent', function () {
+            // 末尾留空位 = 不复权；前复权序列才是补数慢的那条
+            return jsonVar(API.txKline, { param: code + ',day,,,6,' });
+        }).then(function (payload) {
+            var node = payload && payload.data && payload.data[code];
+            // 这条短请求通常已经带回今天完整的日 K（真实开高低、成交量），
+            // 比快照更准；快照只在集合竞价/停牌等拿不到日 K 时顶上。
+            var extra = lastDayBar(node) || barFromTencentQt(node, secid);
+            if (!extra || extra.date !== today) return records;
+            if (records[records.length - 1].date >= extra.date) return records;
+            return records.concat([extra]);
+        }).catch(function () {
+            return records;
+        });
+    }
+
+    /** 腾讯响应里的 day（不复权）最后一根；parseTencentRows 会顺带补上前收 */
+    function lastDayBar(node) {
+        var rows = node && node.day;
+        if (!Array.isArray(rows) || !rows.length) return null;
+        var parsed = parseTencentRows(rows);
+        return parsed.length ? parsed[parsed.length - 1] : null;
     }
 
     function fetchFromEastmoney(secid, beg) {
@@ -539,7 +648,8 @@
     function getKline(secid, beg, end) {
         var cacheKey = 'k:' + secid + ':' + beg;
         var hit = cacheGet(cacheKey, ttlOf('kline'));
-        if (hit) return Promise.resolve(hit);
+        // 缓存里还缺今天这根 = 上次补数时接口还没出数，这次不能再拿它糊弄界面
+        if (hit && !needsTodayBar(hit.records)) return Promise.resolve(hit);
 
         return fetchFromEastmoney(secid, beg).catch(function (primaryError) {
             return fetchFromTencent(secid, beg, end).catch(function (backupError) {
@@ -549,8 +659,11 @@
                     (primaryError.message || '') + ' / ' + (backupError.message || ''));
             });
         }).then(function (result) {
-            cacheSet(cacheKey, result);
-            return result;
+            return padTodayBar(result.records, secid).then(function (records) {
+                result.records = records;
+                cacheSet(cacheKey, result);
+                return result;
+            });
         });
     }
 
@@ -559,7 +672,10 @@
 
     function isFresh(stock) {
         var age = Date.now() - Number(stock.syncedAt || 0);
-        return age < ttlOf('kline');
+        if (age >= ttlOf('kline')) return false;
+
+        // TTL 内也要确认拿到了今天这根，否则缓存会一直把「只有 D0」的数据喂给界面
+        return !needsTodayBar(stock.track);
     }
 
     function ensureSeries(stock, options) {

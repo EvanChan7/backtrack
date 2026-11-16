@@ -292,10 +292,37 @@
         });
     }
 
+    /* ---------------- 定时刷新 ----------------
+       页面开着不动时行情不会自己变，所以按固定间隔重拉当前列表。
+       只刷「已经渲染出来的行」，不预取、不动滚动位置。 */
+    var refreshing = false;
+
+    function refreshVisible() {
+        if (refreshing || !BT.market) return Promise.resolve();
+
+        var stocks = [];
+        Array.prototype.forEach.call(scroller().querySelectorAll('.stock-row'), function (row) {
+            var found = store.findStock(row.dataset.date, row.dataset.group, row.dataset.stock);
+            if (found) stocks.push(found);
+        });
+        if (!stocks.length) return Promise.resolve();
+
+        refreshing = true;
+        return BT.market.syncMany(stocks, {
+            force: true,
+            onProgress: function (stats, stock) { updateRow(stock); }
+        }).then(function () {
+            refreshing = false;
+        }, function () {
+            refreshing = false;
+        });
+    }
+
     BT.feed = {
         resetTo: resetTo,
         teardown: teardown,
         updateRow: updateRow,
+        refreshVisible: refreshVisible,
         bindEvents: bindEvents
     };
 })(window.BT);

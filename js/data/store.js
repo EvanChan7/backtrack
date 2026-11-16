@@ -242,7 +242,9 @@
     /** 判断同一天同一分组里是否已有该标的（按代码优先、其次名称） */
     function hasDuplicate(date, group, code, name) {
         var list = (state.db[date] && state.db[date][group]) || [];
-        var key = code ? 'code:' + code : 'name:' + String(name).toLowerCase();
+        /* code 为 '--' 时不能当有效代码用，否则两边都算成「code:--」，同名不同股会互相误判 */
+        var validCode = code && code !== '--';
+        var key = validCode ? 'code:' + code : 'name:' + String(name || '').toLowerCase();
         return list.some(function (item) {
             var itemKey = item.code && item.code !== '--'
                 ? 'code:' + item.code
@@ -256,6 +258,107 @@
         pendingRecords.push({ date: date, group: group, stock: stock });
         refreshDates();
         return stock;
+    }
+
+    /** 按 id 反查标的所在的日期与分组（详情页只拿得到 id） */
+    function locateStock(stockId) {
+        var dates = Object.keys(state.db);
+        for (var i = 0; i < dates.length; i++) {
+            var batch = state.db[dates[i]];
+            for (var g = 0; g < GROUPS.length; g++) {
+                var list = batch[GROUPS[g]] || [];
+                for (var j = 0; j < list.length; j++) {
+                    if (list[j].id === stockId) {
+                        return { date: dates[i], group: GROUPS[g], index: j, stock: list[j] };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /** 删除后如果这一天两个分组都空了，把整天的批次一起清掉，避免留下空壳日期 */
+    function dropDateIfEmpty(date) {
+        var batch = state.db[date];
+        if (!batch) return;
+        var empty = GROUPS.every(function (group) {
+            return !(batch[group] || []).length;
+        });
+        if (empty) delete state.db[date];
+    }
+
+    /** 删除一只标的。返回 true 表示确实删掉了 */
+    function removeStock(stockId) {
+        var found = locateStock(stockId);
+        if (!found) return false;
+
+        state.db[found.date][found.group].splice(found.index, 1);
+        dropDateIfEmpty(found.date);
+        // 增量记录里也要摘掉，否则 IndexedDB 写失败走 localStorage 降级时
+        // 这条已删除的记录会在下次启动被重新合并回来
+        pendingRecords = pendingRecords.filter(function (item) {
+            return !item.stock || item.stock.id !== stockId;
+        });
+        refreshDates();
+        return true;
+    }
+
+    /**
+     * 改推荐日：把标的从旧批次整体挪到新日期批次。
+     * track 必须清空 —— 日期一换，原来那串行情就不再对应新的 D0，
+     * 留着会被当成「新日期下的收益」展示，那是错的。
+     * 返回 null 表示失败或目标日期已有同一只标的。
+     */
+    function moveStockToDate(stockId, toDate) {
+        var found = locateStock(stockId);
+        if (!found || !util.isValidISODate(toDate)) return null;
+        if (found.date === toDate) return { stock: found.stock, group: found.group, moved: false };
+
+        if (hasDuplicate(toDate, found.group, found.stock.code, found.stock.name)) return null;
+
+        state.db[found.date][found.group].splice(found.index, 1);
+        dropDateIfEmpty(found.date);
+
+        var stock = found.stock;
+        stock.recDate = toDate;
+        stock.track = [];
+        stock.baseDate = '';
+        stock.syncedAt = 0;
+        stock.syncState = 'idle';
+        stock.syncError = '';
+
+        ensureBatch(toDate)[found.group].unshift(stock);
+        retargetPending(stock.id, toDate, found.group);
+        refreshDates();
+        return { stock: stock, group: found.group, moved: true };
+    }
+
+    /**
+     * 改组别：同一天内把标的在优选组 / 落选组之间挪动。
+     * track 保留 —— 日期没变，基准价和行情序列都还有效，收益口径不受影响。
+     * 返回 null 表示目标分组里已经有同一只标的。
+     */
+    function moveStockToGroup(stockId, toGroup) {
+        var found = locateStock(stockId);
+        if (!found || GROUPS.indexOf(toGroup) < 0) return null;
+        if (found.group === toGroup) return { stock: found.stock, group: found.group, moved: false };
+
+        if (hasDuplicate(found.date, toGroup, found.stock.code, found.stock.name)) return null;
+
+        state.db[found.date][found.group].splice(found.index, 1);
+        ensureBatch(found.date)[toGroup].unshift(found.stock);
+        retargetPending(stockId, found.date, toGroup);
+        refreshDates();
+        return { stock: found.stock, group: toGroup, moved: true };
+    }
+
+    /** 增量记录里同步改指向，否则降级到 localStorage 时会被搬回旧位置 */
+    function retargetPending(stockId, date, group) {
+        pendingRecords.forEach(function (item) {
+            if (!item.stock || item.stock.id !== stockId) return;
+            item.date = date;
+            item.group = group;
+        });
     }
 
     /* ---------------- 备份 ---------------- */
@@ -350,6 +453,10 @@
         findStock: findStock,
         hasDuplicate: hasDuplicate,
         addStock: addStock,
+        locateStock: locateStock,
+        removeStock: removeStock,
+        moveStockToDate: moveStockToDate,
+        moveStockToGroup: moveStockToGroup,
         exportBackup: exportBackup,
         importBackup: importBackup
     };

@@ -194,7 +194,8 @@
 }
 .drawer-title { color: var(--text-primary); font-size: 21px; font-weight: 700; letter-spacing: -.03em; }
 .drawer-code { color: var(--text-secondary); font-family: var(--font-num-sm); font-size: 13px; }
-.btn-close {
+/* 编辑入口：实心图标在 17px 下偏重，收到 15px 才和整套线性图标等重 */
+.btn-edit {
     display: grid;
     place-items: center;
     width: 34px;
@@ -203,8 +204,8 @@
     background: var(--bg-elevated);
     color: #D1D1D6;
 }
-.btn-close .icon { width: 17px; height: 17px; }
-.btn-close:active { background: var(--bg-hover); }
+.btn-edit .icon { width: 17px; height: 17px; }
+.btn-edit:active { background: var(--bg-hover); }
 
 /* 三个核心指标：等宽三列，标签与数值左对齐同源，列与列严格对齐 */
 .core-stats {
@@ -320,18 +321,14 @@
     color: #6CB4FF;
 }
 
-/* 累计收益与当日涨跌两组并排；
-   两组各给固定最小宽度并右对齐，所有行的「累计」「当日」标签因此上下对齐 */
-.tl-price-group { display: inline-flex; align-items: baseline; gap: 12px; }
+/* 行头右侧只剩「累计」一项：标签在前、数值紧跟，整组贴右。
+   当天的涨跌幅已经在下方四格的「收盘」里，不再重复。 */
+.tl-price-group { display: inline-flex; align-items: baseline; }
 .tl-metric {
     display: inline-flex;
     align-items: baseline;
-    justify-content: space-between;
     gap: 5px;
 }
-/* 定宽 + 标签贴左、数字贴右：数字长短不一时标签仍然逐行对齐 */
-.tl-price-group .tl-metric:first-child { width: 104px; }
-.tl-price-group .tl-metric:last-child { width: 72px; }
 .tl-tag {
     color: var(--text-tertiary);
     font-family: var(--font-ui);
@@ -340,23 +337,15 @@
     letter-spacing: .02em;
     white-space: nowrap;
 }
-.tl-gain {
-    color: var(--text-primary);
-    font-family: var(--font-num);
-    font-size: 20px;
-    font-weight: 620;
-    letter-spacing: -.03em;
-    line-height: 1.1;
-    white-space: nowrap;
-}
-/* 大数字行高压到 22px，header 高度就由日期的 24px 决定（36 行同高），
-   圆点 top 才能用一个常量精确压在日期行的垂直中心 */
-.tl-gain.text-up { color: var(--color-up); }
-.tl-gain.text-down { color: var(--color-down); }
+/* 累计数值沿用「当日」那套小字：行高低于日期的 24px，
+   header 高度仍由日期决定，时间轴圆点的偏移量不用跟着改。
+   这里刻意不写 color：写完会以同特异性压掉全局的 .text-up/.text-down，
+   涨跌色就没了。0.00% 的 neutral 继承父级颜色即可。 */
 .tl-change {
     font-family: var(--font-num-sm);
-    font-size: 12.5px;
+    font-size: 14px;
     font-weight: 600;
+    line-height: 1.1;
     text-align: right;
     white-space: nowrap;
 }
@@ -750,6 +739,11 @@ input.form-control:focus { border-color: rgba(10, 132, 255, .75); }
 .sheet-option.is-active { font-weight: 650; }
 .sheet-option.is-active .icon { opacity: 1; }
 
+/* 危险操作（删除确认）：去掉单选勾，文字转为告警红 */
+.sheet--danger .sheet-option { justify-content: flex-start; }
+.sheet--danger .sheet-option .icon { display: none; }
+.sheet--danger .sheet-option span { color: var(--color-up); font-weight: 600; }
+
 .sheet-cancel {
     width: 100%;
     min-height: 54px;
@@ -782,13 +776,9 @@ input.form-control:focus { border-color: rgba(10, 132, 255, .75); }
     .tl-meta { gap: 6px; }
     .tl-date { font-size: 13.5px; }
     .tl-day-idx { height: 18px; padding: 0 6px; font-size: 10px; }
-    .tl-price-group { gap: 8px; }
     .tl-metric { gap: 4px; }
-    .tl-price-group .tl-metric:first-child { width: 92px; }
-    .tl-price-group .tl-metric:last-child { width: 66px; }
     .tl-tag { font-size: 10px; }
-    .tl-gain { font-size: 17px; }
-    .tl-change { font-size: 11px; }
+    .tl-change { font-size: 12.5px; }
     .tl-grid { gap: 6px; padding: 11px 10px 12px; }
     .tl-value { font-size: 13px; }
 }

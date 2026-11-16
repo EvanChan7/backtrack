@@ -533,6 +533,8 @@
     text-align: center;
     box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
 }
+/* 底部面板 / 滚轮打开时由 JS 把 toast 抬到面板正上方（见 utils.showToast），
+   否则它会正好压在面板的选项上（删除确认那种场景会把文字挡死） */
 
 /* ================= 小屏兜底 ================= */
 @media (max-width: 360px) {

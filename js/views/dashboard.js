@@ -85,9 +85,9 @@
         return '<div class="pnl-row">'
             + '<span class="pnl-day">' + row.day + ' 天</span>'
             + '<span class="pnl-avg ' + (hasData ? quote.trendClass(row.avg) : '') + '">'
-            + (hasData ? util.formatPercent(row.avg) : '—') + '</span>'
-            + '<span class="pnl-split">' + (hasData ? row.up + '/' + row.down : '—') + '</span>'
-            + '<span class="pnl-n">' + (hasData ? row.samples : '—') + '</span>'
+            + (hasData ? util.formatPercent(row.avg) : util.NO_DATA) + '</span>'
+            + '<span class="pnl-split">' + (hasData ? row.up + '/' + row.down : util.NO_DATA) + '</span>'
+            + '<span class="pnl-n">' + (hasData ? row.samples : util.NO_DATA) + '</span>'
             + '</div>';
     }
 

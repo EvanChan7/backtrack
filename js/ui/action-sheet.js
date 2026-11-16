@@ -70,6 +70,7 @@
      * @param {String} [config.title]   面板标题（如「归入组别」）
      * @param {Array}  config.options   [{ value, label }]
      * @param {String} [config.value]   当前选中值
+     * @param {String} [config.tone]    'danger' 时选项转为危险色（用于二次确认删除）
      * @param {Function} [config.onPick] 选中回调，参数为新值
      */
     function open(config) {
@@ -81,6 +82,8 @@
             value: config.value || '',
             onPick: config.onPick || null
         };
+
+        root.classList.toggle('sheet--danger', config.tone === 'danger');
 
         titleEl.textContent = config.title || '';
         titleEl.hidden = !config.title;
@@ -98,6 +101,8 @@
         clearTimeout(hideTimer);
         root.hidden = false;
         opened = true;
+        document.body.classList.add('sheet-open');
+        if (util.repositionToast) util.repositionToast();
 
         // 先让面板以 translateY(100%) 完成一次布局，再加 active 才有过渡起点
         requestAnimationFrame(function () {
@@ -108,6 +113,7 @@
     function close() {
         if (!root || !opened) return;
         opened = false;
+        document.body.classList.remove('sheet-open');
         root.classList.remove('active');
         clearTimeout(hideTimer);
         hideTimer = setTimeout(function () {
